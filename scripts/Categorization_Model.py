@@ -1,16 +1,11 @@
 # FISES Classification Script
 # The model is based on Google fastText framework
 
-import numpy as np
 import pandas as pd
-import requests
-import argparse
-
 from nltk.tokenize import RegexpTokenizer
 import pymorphy2
 
 import fasttext
-
 
 # Function tokenizing and lemmatizing the corpus
 
@@ -67,16 +62,17 @@ def make_prediction(X_pred, model):
 
 # THE END #
 
-def main():
+def categorize(data_galmart):
 
     # 1. Reading Astykzhan file, used for model training
     # Galmart file, used for category prediction
-    astykzhan = pd.read_csv('Astykzhan_Astana.csv')
+    # astykzhan = pd.read_csv('Astykzhan_Astana.csv', encoding='cp1251')
+    astykzhan = pd.read_excel('Astykzhan_Astana.xlsx', encoding='cp1251')
     X_train = astykzhan.name.values
     target = astykzhan.category.values
 
-    galmart = pd.read_csv('Galmart.csv')
-    X_pred = galmart.name.values
+    # data_galmart = pd.read_csv('Galmart.csv')
+    X_pred = data_galmart.name.values
 
     # 2. Calling tokenization function
     X_train = clean_tokens(X_train)
@@ -93,34 +89,19 @@ def main():
 
     # 5. Making prediciton for categories
     data = make_prediction(X_pred, model)
-    data['price'] = galmart.price.astype(int)
-
+    data['price'] = data_galmart.price.astype(int)
+    data.to_csv('source/Galmart_Astana.xlsx', index=False, header=['name', 'category', 'price'], encoding='cp1251', engine = 'xlsxwriter')
+    return data
     # 6. Importing to Excel
-    data.to_excel('galmart_categorized.xlsx', index = False, header = ['name','price', 'category'], engine = 'xlsxwriter')
-    print('Import to .xlsx DONE')
+    # data.to_excel('Galmart_categorized.xlsx', index = False, header = ['name','price', 'category'], engine = 'xlsxwriter')
+    # data.to_csv('Galmart_categorized.csv', index=False, header = ['name','price', 'category'], encoding='utf-8')
 
 
 # function sending the scrapped data via API
 
-def send(webstore_id):
-    # posting the categorized Galmart products via API:
-    webstore_id = 1001 # for Galmart
-    requests.post('http://13.59.5.143:8082/webcatalogitems/excel', 'galmart_categorized.xls', webstore_id)
+# def send(webstore_id):
+#     # posting the categorized Galmart products via API:
+#     webstore_id = 1001 # for Galmart
+#     requests.post('http://13.59.5.143:8082/webcatalogitems/excel', 'galmart_categorized.xls', webstore_id)
 
 
-# CLI
-parser = argparse.ArgumentParser(description = 'FISES Categorization Model Script')
-parser.add_argument('mode', help = 'Select the mode: predict the category or send via API. Print "predict" or "send"', type = str)
-parser.add_argument('second_arg', help = 'Please insert webstore id', type = str)
-args = parser.parse_args()
-
-
-
-if args.mode == 'predict':
-    print('Launching the fastText model...')
-    main()
-elif args.mode == 'send':
-    print('Sending via API...')
-    send(args.second_arg)
-else:
-    print('Please follow the instructions provided')

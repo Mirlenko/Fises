@@ -5,25 +5,21 @@ import requests
 import numpy as np
 import pandas as pd
 import re
-import argparse
 
 
 # Function opening web page:
-
 def open_page(page_num, url = 'https://store.galmart.kz/shop/page'):
-    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'}
+    head = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'}
     page_url = url + '/' + str(page_num)
-    return requests.get(page_url, headers = headers)
+    return requests.get(page_url, headers = head)
 
 
 # Main Function
-
-def scrap():
+def Galmart_scrap(city, url):
 
     # 1. Getting the number of pages to scrap:
-
-    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'}
-    page = requests.get('https://store.galmart.kz/shop/page/2', headers = headers)
+    head = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:45.0) Gecko/20100101 Firefox/45.0'}
+    page = requests.get('https://store.galmart.kz/shop/page/2', headers = head)
     pages = []
     if page.status_code == 200:
         soup = BeautifulSoup(page.text, "html.parser")
@@ -36,7 +32,6 @@ def scrap():
 
 
     # 2. Reading the shop pages one by one. 
-
     products = []
     prices = []
     for i in np.arange(1,num_pages+1):
@@ -57,7 +52,6 @@ def scrap():
 
 
     # 3. Deleting irrelevant symbols from the price:
-
     prices_clean = []
     pattern = '(\d+[,])?\d+'
     for price in prices:
@@ -67,7 +61,7 @@ def scrap():
 
 
     # 4. Taking only relevant information from the product description:
-
+    # Comment out if product origin is useless
     origins = []
     for product in products:
         separated = str(product).strip().split(',')
@@ -82,36 +76,10 @@ def scrap():
         else:
             origins.append('NONE')
 
-
-    # 5. Exporting the scrapped data to Excel
-
-    data = pd.DataFrame({'product':products, 'price':prices_clean, 'origin':origins})
-    data['price'] = data['price'].astype(int)
-    data.to_excel('Galmart.xlsx', index = False, header = ['product','price', 'origin'], engine = 'xlsxwriter')
-    print('Import to .xlsx DONE')
-
-    # 6. Saving to csv format for further use
+    # 5. Returning the DataFrame - saving to csv can be added as well
     data = pd.DataFrame({'name':products, 'price':prices_clean})
     data['price'] = data['price'].astype(int)
-
-    data.to_csv('Galmart.csv', index = False, encoding = 'utf-8')
-    print('Import to .csv DONE')
-    print('ALL DONE')
-
-
-# CLI
-parser = argparse.ArgumentParser(description = 'Galmart Webstore Products Scrapping Script')
-scrap()
-# parser.add_argument('mode', help = 'Select the mode: scrap the data or send via API. Print "scrap" or "send"', type = str)
-# parser.add_argument('second_arg', help = 'Please insert webstore id', type = str)
-# args = parser.parse_args()
-
-
-# if args.mode == 'scrap':
-#     print('Scrapping the data')
-#     scrap()
-# elif args.mode == 'send':
-#     print('Sending via API')
-#     send(args.second_arg)
-# else:
-#     print('Please follow the instructions provided')
+    # print('Ready to save to .csv format...')
+    file_name = 'source/Galmart_{}_raw.csv'.format(city)
+    data.to_csv(file_name, index=False, encoding='cp1251')
+    return data

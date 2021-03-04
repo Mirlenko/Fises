@@ -1,22 +1,17 @@
 # Astykzhan Shop Web Scrapping
 
-
-
 import numpy as np
 import pandas as pd
 import re
 import time
-import json
-import ast
-import argparse
 from bs4 import BeautifulSoup
 import requests
 
 
-# Function opening web page: city_num = 1 if Astana; city_num = 2 if Kostanay.
+# Function opening web page
 
-def open_page(category, page_num = 1, city_num = 1, url = 'https://astykzhan.kz/catalog/list/{}?PAGEN_1={}&city={}'):
-    page_url = url.format(category, page_num, city_num)
+def open_page(category, city_code, page_num = 1, url = 'https://astykzhan.kz/catalog/list/{}?PAGEN_1={}&city={}'):
+    page_url = url.format(category, page_num, city_code)
     
     #exceptions
     while True:
@@ -46,11 +41,11 @@ def open_page(category, page_num = 1, city_num = 1, url = 'https://astykzhan.kz/
 
 # Functions scrapping the categories names and links to them
 
-def get_categories(link, main_page = 'https://astykzhan.kz/catalog/list/{}?city=1'):
+def get_categories(link, city_code, main_page = 'https://astykzhan.kz/catalog/list/{}?city={}'):
     
     # this function returns the dictionary with categories titles (keys) and links to their pages
     
-    url = main_page.format(link)
+    url = main_page.format(link, city_code)
     
     page = requests.get(url)
     soup = BeautifulSoup(page.text, 'html.parser')
@@ -68,11 +63,11 @@ def get_categories(link, main_page = 'https://astykzhan.kz/catalog/list/{}?city=
 
 # ### Linking together categories and sub-categories, related to them
 
-def get_categories_linked(cat_name, link, main_page = 'https://astykzhan.kz/catalog/list/{}?city=1'):
+def get_categories_linked(cat_name, link, city_code, main_page = 'https://astykzhan.kz/catalog/list/{}?city={}'):
     
     # this function returns the dictionary with categories titles (keys) and links to their pages
     
-    url = main_page.format(link)
+    url = main_page.format(link, city_code)
     
     page = requests.get(url)
     soup = BeautifulSoup(page.text, 'html.parser')
@@ -90,15 +85,20 @@ def get_categories_linked(cat_name, link, main_page = 'https://astykzhan.kz/cata
 
 ### MAIN 
 
-def scrap():
+def Astykzhan_scrap(city, url):
+
+    if city == 'Astana':
+        city_code = 1
+    elif city == 'Kostanay':
+        city_code = 2
 
     # 1. Scrapping four main categories:
-    main_cats = get_categories('')
+    main_cats = get_categories('', city_code)
 
     # 2. Scrapping subcategories in each of four main categories:
     cats = {}
     for cat in main_cats:
-        categories = get_categories(main_cats[cat])
+        categories = get_categories(main_cats[cat], city_code)
         cats.update(categories)
 
         
@@ -113,7 +113,7 @@ def scrap():
 
     sub_cats_linked = {}
     for cat in cats:
-        categories = get_categories_linked(cat, cats[cat])
+        categories = get_categories_linked(cat, cats[cat], city_code)
         sub_cats_linked.update(categories)
 
     # 4. Scrapping each sub-category one by one, however, categorize the scrapped data according to Categories (not subcategories)
@@ -126,7 +126,7 @@ def scrap():
 
     for category in sub_cats_linked:
         #getting number of pages in each category
-        _, num_pages = open_page(category)
+        _, num_pages = open_page(category, city_code)
         
         # scrapping pages in category one by one
         for i in np.arange(1, num_pages + 1):
@@ -182,48 +182,18 @@ def scrap():
     # 5. Making sure the scrapped data is consistent
     print('Data consistency: ', len(products) == len(titles) == len(prices) == len(old_prices) == len(categories))
 
+    # 6. Returning the DataFrame - saving to csv can be added as well
 
-    # 6. Importing the scrapped data to Excel
-
-    data = pd.DataFrame({'name':products, 'price':prices, 'category':categories})
+    data = pd.DataFrame({'name':products, 'category':categories, 'price':prices})
     data['price'] = data['price'].astype(int)
 
-    data.to_excel('Astykzhan_Astana.xls', index = False, header = ['name','price', 'category'], engine = 'xlsxwriter')
-    print('Import to .xlsx DONE')
-
-
-    # 7. Saving to csv format for further use
-
-    data = pd.DataFrame({'name':products, 'category':categories, 'price':prices, 'old_price':old_prices, 'title':titles})
-    data['price'] = data['price'].astype(int)
-
-    data.to_csv('Astykzhan_Astana.csv', index = False, encoding = 'utf-8')
-    print('Import to .csv DONE')
-    print('ALL DONE')
-
-    # THE END #
-
+    # file_name = 'Astykzhan_{}.csv'.format(city)
+    # data.to_csv(file_name, index = False, encoding = 'cp1251')
+    data.to_csv('source/Astykzhan_Astana.xlsx', index=False, encoding='cp1251')
+    return data
 
 # function sending the scrapped data via API
 
-def send(webstore_id):
-    # webstore_id = 1000 # for Astykzhan
-    requests.post('http://13.59.5.143:8082/webcatalogitems/excel', 'astykzhan_Astana.xls', webstore_id)
-
-
-# CLI
-parser = argparse.ArgumentParser(description = 'Astykzhan Webstore Products Scrapping Script')
-parser.add_argument('mode', help = 'Select the mode: scrap the data or send via API. Print "scrap" or "send"', type = str)
-parser.add_argument('second_arg', help = 'Please insert webstore id', type = str)
-args = parser.parse_args()
-
-
-
-if args.mode == 'scrap':
-    print('Scrapping the data...')
-    scrap()
-elif args.mode == 'send':
-    print('Sending via API...')
-    send(args.second_arg)
-else:
-    print('Please follow the instructions provided')
+# def send(webstore_id):
+#     # webstore_id = 1000 # for Astykzhan
+#     requests.post('http://13.59.5.143:8082/webcatalogitems/excel', 'astykzhan_Astana.xls', webstore_id)
